@@ -12,7 +12,6 @@ public class Squad {
   private float arrivalCheckDensity = 0.3f;
   private float arrivalCheckPercentage = 0.9f;
 
-  private List<GameObject> units = new List<GameObject>();
   private List<Boid> boids = new List<Boid>();
   private List<NavMeshAgent> agents = new List<NavMeshAgent>();
 
@@ -26,12 +25,11 @@ public class Squad {
     NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
     Assert.IsNotNull(boid, "Boid component needed!");
     Assert.IsNotNull(agent, "NavMeshAgent component needed!");
-    units.Add(unit);
     boids.Add(boid);
     agents.Add(agent);
 
     areaOfAllUnits += Mathf.PI * agent.radius * agent.radius;
-    requiredFinishedCount = Mathf.CeilToInt(arrivalCheckPercentage * units.Count);
+    requiredFinishedCount = Mathf.CeilToInt(arrivalCheckPercentage * boids.Count);
   }
 
   public void MonitorNavigation() {
@@ -68,7 +66,7 @@ public class Squad {
   }
 
   public void Dispatch(Vector3 destination) {
-    if (units.Count == 0)
+    if (boids.Count == 0)
       return;
 
     // Utility.SingleLinkMetric<NavMeshAgent> metric = (NavMeshAgent a, NavMeshAgent b) =>
@@ -82,26 +80,25 @@ public class Squad {
     // List<List<int>> clusters = Utility.SingleLink(agents, metric, 20f);
 
     Vector3 centroid = Vector3.zero;
-    foreach (var unit in units) {
-      centroid += unit.transform.position;
+    foreach (Boid boid in boids) {
+      centroid += boid.transform.position;
     }
-    centroid /= units.Count;
+    centroid /= boids.Count;
 
-    int leader_index = 0;
+    NavMeshAgent leader_agent = null;
     float min_distance = float.MaxValue;
-    for (int index = 0; index < units.Count; index++) {
-      Vector3 position = units[index].transform.position;
+    foreach (NavMeshAgent agent in agents) {
+      Vector3 position = agent.transform.position;
       float distance = (position - centroid).sqrMagnitude;
       if (distance < min_distance) {
         min_distance = distance;
-        leader_index = index;
+        leader_agent = agent;
       }
     }
 
+    leader_agent.enabled = true;
     NavMeshPath path = new NavMeshPath();
-    NavMeshAgent agent = agents[leader_index];
-    agent.enabled = true;
-    if (agent.CalculatePath(destination, path)) {
+    if (leader_agent.CalculatePath(destination, path)) {
       List<Vector3> corners = Utility.UpsamplePath(path);
 
       foreach (Boid boid in boids) {
