@@ -5,32 +5,33 @@ using UnityEngine.AI;
 using UnityEngine.Assertions;
 
 public class Squad {
-  public uint ID { get; set; }
-
-  public static int MaxUnits = 100;
+  // public uint ID { get; set; }
 
   private float areaOfAllUnits = 0f;
-  private int requiredArrivalCount = 0;
-  [Range(0f, 1f)] const float kArrivalCheckDensity = 0.3f;
-  [Range(0f, 1f)] const float kArrivalCheckPercentage = 0.9f;
+  private int requiredFinishedCount = 0;
+  private float arrivalCheckDensity = 0.3f;
+  private float arrivalCheckPercentage = 0.9f;
 
   private List<GameObject> units = new List<GameObject>();
   private List<Boid> boids = new List<Boid>();
   private List<NavMeshAgent> agents = new List<NavMeshAgent>();
 
-  public void Add(GameObject unit) {
-    if (units.Count < MaxUnits) {
-      Boid boid = unit.GetComponent<Boid>();
-      NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
-      Assert.IsNotNull(boid, "Boid component needed!");
-      Assert.IsNotNull(agent, "NavMeshAgent component needed!");
-      units.Add(unit);
-      boids.Add(boid);
-      agents.Add(agent);
+  public Squad(GameAIPresets presets) {
+    arrivalCheckDensity = presets.SquadArrivalCheckDensity;
+    arrivalCheckPercentage = presets.SquadArrivalCheckPercentage;
+  }
 
-      areaOfAllUnits += Mathf.PI * agent.radius * agent.radius;
-      requiredArrivalCount = Mathf.CeilToInt(kArrivalCheckPercentage * units.Count);
-    }
+  public void Add(GameObject unit) {
+    Boid boid = unit.GetComponent<Boid>();
+    NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
+    Assert.IsNotNull(boid, "Boid component needed!");
+    Assert.IsNotNull(agent, "NavMeshAgent component needed!");
+    units.Add(unit);
+    boids.Add(boid);
+    agents.Add(agent);
+
+    areaOfAllUnits += Mathf.PI * agent.radius * agent.radius;
+    requiredFinishedCount = Mathf.CeilToInt(arrivalCheckPercentage * units.Count);
   }
 
   public void MonitorNavigation() {
@@ -48,7 +49,7 @@ public class Squad {
 
     float area = Mathf.PI * radius * radius;
     float density = areaOfAllUnits / area;
-    bool arrived = (count >= requiredArrivalCount) || (density >= kArrivalCheckDensity);
+    bool arrived = (count >= requiredFinishedCount) || (density >= arrivalCheckDensity);
 
     bool stop = true;
     foreach (Boid boid in boids) {

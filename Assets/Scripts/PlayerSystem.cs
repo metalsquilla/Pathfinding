@@ -9,14 +9,18 @@ public class PlayerSystem : MonoBehaviour {
 
   public Transform TargetReticle;
 
+  public GameAIPresets AIPresets;
+
   private List<Squad> squads;
   private InputSystem inputSystem;
 
   // Use this for initialization
   void Start() {
+    Assert.IsNotNull(AIPresets, "Please assign GameAIPresets");
+
     squads = new List<Squad>();
     var ground_units = GameObject.FindGameObjectsWithTag("GroundUnit");
-    Squad squad = new Squad();
+    Squad squad = new Squad(AIPresets);
     foreach (var unit in ground_units) {
       squad.Add(unit);
     }

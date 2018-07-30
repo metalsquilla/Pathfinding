@@ -1,20 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
 
 public class Utility {
-  [Range(0f, 1f)] const float kDefaultPathUpsampleGranularity = 0.25f;
-  [Range(0f, 100f)] const float kDefaultSingleLinkThreshold = 10f;
+  [Range(1f, 20f)] const float kDefaultPathUpsampleStep = 5f;
+  [Range(1f, 50f)] const float kDefaultSingleLinkThreshold = 10f;
 
-  public static List<Vector3> UpsamplePath(NavMeshPath path, float granularity = kDefaultPathUpsampleGranularity) {
+  public static List<Vector3> UpsamplePath(NavMeshPath path, float step = kDefaultPathUpsampleStep) {
     List<Vector3> output = new List<Vector3>();
     for (int i = 1; i < path.corners.Length; i++) {
-      for (float alpha = 0f; alpha < 1f; alpha += granularity) {
+      Vector3 offset = path.corners[i] - path.corners[i - 1];
+      Vector3 direction = offset.normalized;
+      float distance = offset.magnitude;
+      float reciprocal = 1f / distance;
+      for (float length = 0f; length < distance; length += step) {
+        float alpha = length * reciprocal;
         output.Add((1f - alpha) * path.corners[i - 1] + alpha * path.corners[i]);
       }
     }
-    output.Add(path.corners[path.corners.Length - 1]);
+    output.Add(path.corners.Last());
 
     return output;
   }

@@ -1,28 +1,36 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Assertions;
 
 [RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(NavMeshAgent))]
-[RequireComponent(typeof(CapsuleCollider))]
+[RequireComponent(typeof(CharacterController))]
 public class Boid : MonoBehaviour {
+  [HideInInspector]
+  public uint SquadID { get; set; }
+
+  [HideInInspector]
+  public uint UnitID { get; set; }
+
   [HideInInspector]
   public bool OkayToStop { get; set; }
 
   [HideInInspector]
   public bool PathFinished {
-    get {
-      return (pathCorners.Count > 0 && nextCornerIndex == pathCorners.Count);
-    }
+    get { return (pathCorners.Count > 0 && nextCornerIndex == pathCorners.Count); }
   }
 
   [HideInInspector]
   public float RemainingDistance {
-    get {
-      return (pathCorners.Count == 0) ? 0f : (transform.position - pathCorners[pathCorners.Count - 1]).magnitude;
-    }
+    get { return (pathCorners.Count == 0) ? 0f : (transform.position - pathCorners.Last()).magnitude; }
   }
+
+  public bool Verbose = false;
+
+  public GameAIPresets AIPresets;
 
   private Animator animator;
   private NavMeshAgent agent;
@@ -31,26 +39,22 @@ public class Boid : MonoBehaviour {
   private List<Vector3> pathCorners = new List<Vector3>();
   private int nextCornerIndex = 0;
 
+  private bool isLeftHanded = false;
   private bool hasBeenBlocked = false;
   private float beginRepathTimer = 0;
-  const float kBeginRepathTimeout = 3f;
-  const float kMaxProbedPathLength = 24f;
-
-  private Vector3 dodgeDirection = Vector3.zero;
-  const float kAvoidanceForce = 1.5f;
-  const float kRetractionForce = 0.2f;
-
-  const float kCollisionCheckDist = 2f;
-  const float kArrivalCheckRadius = 2f;
 
   // Use this for initialization
   void Start() {
+    Assert.IsNotNull(AIPresets, "GameAIPresets needed!");
+
     animator = GetComponent<Animator>();
     agent = GetComponent<NavMeshAgent>();
 
     agent.isStopped = true;
-    agent.updatePosition = true;
+    agent.updatePosition = false;
     agent.updateRotation = false;
+
+    isLeftHanded = Random.Range(0f, 1f) > 0.5f;
 
     if (agent.updatePosition && animator.applyRootMotion) {
       Debug.LogWarning("NavMesh Agent and Animator with Root Motion can cause race condition!");
@@ -62,17 +66,21 @@ public class Boid : MonoBehaviour {
     Navigate();
     Animate();
 
-    if (nextCornerIndex < pathCorners.Count) {
-      Debug.DrawLine(transform.position + Vector3.up,
-                     pathCorners[nextCornerIndex] + Vector3.up,
-                     Color.cyan, Time.deltaTime);
-      for (int i = nextCornerIndex; i < pathCorners.Count - 1; i++) {
-        Debug.DrawLine(pathCorners[i] + Vector3.up,
-                       pathCorners[i + 1] + Vector3.up,
+    if (Verbose) {
+      if (nextCornerIndex < pathCorners.Count) {
+        Debug.DrawLine(transform.position + Vector3.up,
+                       pathCorners[nextCornerIndex] + Vector3.up,
                        Color.cyan, Time.deltaTime);
+        for (int i = nextCornerIndex; i < pathCorners.Count - 1; i++) {
+          Debug.DrawLine(pathCorners[i] + Vector3.up,
+                         pathCorners[i + 1] + Vector3.up,
+                         Color.cyan, Time.deltaTime);
+          Debug.DrawRay(pathCorners[i], 3f * Vector3.up, Color.red, Time.deltaTime);
+        }
       }
+      Debug.DrawRay(transform.position + Vector3.up * 0.5f, agent.velocity, Color.yellow, Time.deltaTime);
     }
-    Debug.DrawRay(transform.position + Vector3.up * 0.5f, agent.velocity, Color.yellow, Time.deltaTime);
+
   }
 
   public void Stop() {
@@ -110,7 +118,6 @@ public class Boid : MonoBehaviour {
   }
 
   private void Navigate() {
-    float max_speed = agent.speed;
     Vector3 steering = Vector3.zero;
 
     // Pathfinding + steering
@@ -120,26 +127,32 @@ public class Boid : MonoBehaviour {
     Vector3 attraction = Vector3.zero;
     Vector3 retraction = Vector3.zero;
     if (PathFinished) {
-      Vector3 end = pathCorners[pathCorners.Count - 1];
-      Vector3 offset = end - transform.position;
-      retraction = kRetractionForce * offset;
-      if (offset.magnitude <= kArrivalCheckRadius)
+      Vector3 offset = pathCorners.Last() - transform.position;
+      retraction = AIPresets.BoidRetractionForce * offset;
+      if (offset.magnitude <= AIPresets.BoidArrivalCheckRadius)
         arrived = true;
     }
     else if (nextCornerIndex < pathCorners.Count) {
+      // Don't set the Agent Radius parameter in navmesh baking to be exactly what is on your agent!
+      // Otherwise, you won't get correct steering target since navmesh raycast will return true if
+      // the probe is on the navmesh border! So, let the radius to be a bit smaller than actual!
       NavMeshHit navmesh_hit;
-      bool navmesh_blocked = agent.Raycast(pathCorners[nextCornerIndex], out navmesh_hit);
+      blocked = agent.Raycast(pathCorners[nextCornerIndex], out navmesh_hit);
 
       // Probe the path ahead of next corner if it is blocked on navmesh
-      // If there's a non-blocked probe, switch current navigation target to it
-      bool probe_blocked = navmesh_blocked;
+      // If there's a non-blocked probe, set it as current steering target
+      bool probe_blocked = blocked;
       float probed_length = 0f;
       Vector3 previous_probe = pathCorners[nextCornerIndex];
-      Vector3 viable_target = pathCorners[nextCornerIndex];
-      for (int index = nextCornerIndex; index > 0 && probe_blocked && probed_length < kMaxProbedPathLength; index--) {
+      Vector3 steering_target = pathCorners[nextCornerIndex];
+      for (int index = nextCornerIndex;
+           index > 0 && probe_blocked && probed_length < AIPresets.BoidMaxProbingLength;
+           index--) {
         Vector3 far = pathCorners[index];
         Vector3 near = pathCorners[index - 1];
-        for (float alpha = 0f; alpha < 1f && probe_blocked && probed_length < kMaxProbedPathLength; alpha += 0.34f) {
+        for (float alpha = 0f;
+             alpha < 1f && probe_blocked && probed_length < AIPresets.BoidMaxProbingLength;
+             alpha += 0.34f) {
           Vector3 probe = (1f - alpha) * far + alpha * near;
           probed_length += (probe - previous_probe).magnitude;
           previous_probe = probe;
@@ -147,50 +160,42 @@ public class Boid : MonoBehaviour {
           NavMeshHit probe_hit;
           probe_blocked = agent.Raycast(probe, out probe_hit);
           if (!probe_blocked) {
-            viable_target = probe;
+            steering_target = probe;
             navmesh_hit = probe_hit;
-            navmesh_blocked = false;
+            blocked = false;
           }
         }
       }
 
-      // Avoid physical obstacle along the route
-      RaycastHit raycast_hit;
-      int layer_mask = LayerMask.GetMask("Obstacle");
-      Vector3 origin = transform.position + agent.height * transform.up;
-      Vector3 direction = (viable_target - transform.position).normalized;
-      bool raycast_blocked = Physics.Raycast(origin, direction, out raycast_hit, kCollisionCheckDist, layer_mask);
-
-      blocked = raycast_blocked || navmesh_blocked;
       if (blocked) {
-        if (dodgeDirection == Vector3.zero) {
-          if (raycast_blocked) {
-            Vector3 reflection = Vector3.Reflect(direction, raycast_hit.normal);
-            dodgeDirection += direction + reflection;
-          }
-          if (navmesh_blocked) {
-            Vector3 reflection = Vector3.Reflect(direction, navmesh_hit.normal);
-            dodgeDirection += direction + reflection;
-          }
+        Vector3 desire = (navmesh_hit.position - transform.position).normalized;
+        Vector3 normal = Vector3.ProjectOnPlane(navmesh_hit.normal, Vector3.up);
+        bool close = navmesh_hit.distance < AIPresets.BoidCollisionCheckDistance;
+        Vector3 dodge = close ? Vector3.Cross(Vector3.up, normal) : Vector3.Cross(desire, Vector3.up);
+        if (isLeftHanded) dodge = -dodge;
+
+        Vector3 ahead = transform.position + dodge * AIPresets.BoidCollisionCheckDistance;
+        NavMeshHit ahead_hit;
+        // Adjust dodge direction if the position ahead is also blocked
+        if (agent.Raycast(ahead, out ahead_hit)) {
+          desire = (ahead_hit.position - transform.position).normalized;
+          dodge = Vector3.Cross(desire, Vector3.up);
+          if (isLeftHanded) dodge = -dodge;
         }
-        // Turn back if there's obstacle ahead
-        if (Physics.Raycast(origin, transform.forward, kCollisionCheckDist, layer_mask)) {
-          dodgeDirection -= transform.forward;
-        }
-        avoidance = kAvoidanceForce * dodgeDirection.normalized;
-        Debug.DrawRay(origin, avoidance, Color.magenta, Time.deltaTime);
+
+        avoidance = AIPresets.BoidAvoidanceForce * dodge.normalized;
       }
       else {
-        dodgeDirection = Vector3.zero;
-        Vector3 target_offset = viable_target - transform.position;
-        Vector3 desired_velocity = max_speed * target_offset.normalized;
-        attraction = desired_velocity - agent.velocity;
+        Vector3 target_offset = steering_target - transform.position;
+        attraction = agent.speed * target_offset.normalized;
+        // Vector3 desired_velocity = agent.speed * target_offset.normalized;
+        // attraction = desired_velocity - agent.velocity;
       }
 
       // Update next corner
       Vector3 next_corner = pathCorners[nextCornerIndex];
       Vector3 next_offset = transform.position - next_corner;
-      if (next_offset.magnitude < kArrivalCheckRadius) {
+      if (next_offset.magnitude < AIPresets.BoidArrivalCheckRadius) {
         nextCornerIndex += 1;
       }
     }
@@ -209,8 +214,8 @@ public class Boid : MonoBehaviour {
     }
 
     // Apply steering
-    if (beginRepathTimer >= kBeginRepathTimeout) {
-      beginRepathTimer %= kBeginRepathTimeout;
+    if (beginRepathTimer >= AIPresets.BoidBeginRepathTimeout) {
+      beginRepathTimer %= AIPresets.BoidBeginRepathTimeout;
       Debug.Log("agent blocked! start repathing");
 
       NavMeshPath path = new NavMeshPath();
@@ -218,20 +223,18 @@ public class Boid : MonoBehaviour {
         List<Vector3> corners = Utility.UpsamplePath(path);
         Guide(originalDestination, corners);
       }
-      else {
-        Debug.DrawRay(transform.position, 3f * Vector3.up, Color.red, Time.deltaTime);
-      }
     }
     else if (arrived || OkayToStop) {
       agent.velocity = Vector3.zero;
     }
     else {
-      steering = Vector3.ClampMagnitude(steering, max_speed);
+      steering = Vector3.ClampMagnitude(steering, agent.speed);
       steering = Vector3.ProjectOnPlane(steering, Vector3.up);
-      agent.velocity = Vector3.ClampMagnitude(agent.velocity + steering, max_speed);
+      Vector3 velocity = agent.velocity + steering;
+      agent.velocity = Vector3.ClampMagnitude(velocity, agent.speed);
     }
 
-    if (OkayToStop) {
+    if (OkayToStop && Verbose) {
       Debug.DrawRay(transform.position, 3f * Vector3.up, Color.green, Time.deltaTime);
     }
   }
@@ -247,6 +250,8 @@ public class Boid : MonoBehaviour {
     Vector3 forward_velocity = Vector3.Project(agent.velocity, transform.forward);
     float forward_speed = Vector3.Dot(forward_velocity, transform.forward);
     forward_speed = Mathf.Clamp(forward_speed, 0f, forward_speed);
+    transform.position += forward_speed * transform.forward * Time.deltaTime;
+    agent.nextPosition = transform.position;
     animator.SetFloat("MoveSpeed", forward_speed);
   }
 }
