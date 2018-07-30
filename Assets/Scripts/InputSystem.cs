@@ -7,7 +7,7 @@ public class InputSystem : MonoBehaviour {
   public float CameraMoveX { get; private set; }
   public float CameraMoveY { get; private set; }
   public float CameraZoom { get; private set; }
-  
+
   public Vector3 MouseRayHitPosition { get; private set; }
   public Vector3 MouseRayHitNormal { get; private set; }
 
@@ -18,12 +18,12 @@ public class InputSystem : MonoBehaviour {
   private CameraSystem cameraSystem;
 
   // Use this for initialization
-  void Start () {
+  void Start() {
     cameraSystem = GetComponent<CameraSystem>();
-	}
-	
-	// Update is called once per frame
-	void Update () {
+  }
+
+  // Update is called once per frame
+  void Update() {
     CameraMoveX = Input.GetAxis("Horizontal");
     CameraMoveY = Input.GetAxis("Vertical");
     CameraZoom = Input.GetAxis("Mouse ScrollWheel");

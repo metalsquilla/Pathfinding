@@ -15,8 +15,8 @@ public class CameraSystem : MonoBehaviour {
   private Vector3 cameraZoomAxis;
 
   // Use this for initialization
-  void Start () {
-		if (!MainCamera) {
+  void Start() {
+    if (!MainCamera) {
       MainCamera = Camera.main;
     }
     Assert.IsNotNull(MainCamera, "Please set main camera to CameraSystem!");
