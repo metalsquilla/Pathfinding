@@ -188,8 +188,6 @@ public class Boid : MonoBehaviour {
       else {
         Vector3 target_offset = steering_target - transform.position;
         attraction = agent.speed * target_offset.normalized;
-        // Vector3 desired_velocity = agent.speed * target_offset.normalized;
-        // attraction = desired_velocity - agent.velocity;
       }
 
       // Update next corner
@@ -203,7 +201,7 @@ public class Boid : MonoBehaviour {
     steering += avoidance + attraction + retraction;
 
     // Accumulate timer if all path probes are blocked
-    if (blocked) {
+    if (blocked && !(OkayToStop || PathFinished)) {
       if (hasBeenBlocked)
         beginRepathTimer += Time.deltaTime;
       hasBeenBlocked = true;
@@ -228,10 +226,9 @@ public class Boid : MonoBehaviour {
       agent.velocity = Vector3.zero;
     }
     else {
-      steering = Vector3.ClampMagnitude(steering, agent.speed);
       steering = Vector3.ProjectOnPlane(steering, Vector3.up);
-      Vector3 velocity = agent.velocity + steering;
-      agent.velocity = Vector3.ClampMagnitude(velocity, agent.speed);
+      steering = Vector3.ClampMagnitude(steering, agent.speed);
+      agent.velocity = Vector3.ClampMagnitude(agent.velocity + steering, agent.speed);
     }
 
     if (OkayToStop && Verbose) {
