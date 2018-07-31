@@ -16,7 +16,7 @@ public class Boid : MonoBehaviour {
   public uint UnitID { get; set; }
 
   [HideInInspector]
-  public bool OkayToStop { get; set; }
+  public bool PrepareToStop { get; set; }
 
   [HideInInspector]
   public bool PathFinished {
@@ -25,7 +25,7 @@ public class Boid : MonoBehaviour {
 
   [HideInInspector]
   public float RemainingDistance {
-    get { return (pathCorners.Count == 0) ? 0f : (transform.position - pathCorners.Last()).magnitude; }
+    get { return (pathCorners.Count == 0) ? 0f : (center - pathCorners.Last()).magnitude; }
   }
 
   public bool Verbose = false;
@@ -34,8 +34,15 @@ public class Boid : MonoBehaviour {
 
   private Animator animator;
   private NavMeshAgent agent;
+  private CharacterController character;
 
-  private Vector3 originalDestination = Vector3.zero;
+  private Vector3 momentum = Vector3.zero;
+  private Vector3 velocity { get { return character.velocity; } }
+  private Vector3 reciprocal { get { return agent.velocity; } }
+  private Vector3 center { get { return character.center + transform.position; } }
+
+  private Vector3 goal = Vector3.zero;
+  private Vector3 destination { get { return pathCorners.LastOrDefault(); } }
   private List<Vector3> pathCorners = new List<Vector3>();
   private int nextCornerIndex = 0;
 
@@ -49,8 +56,12 @@ public class Boid : MonoBehaviour {
 
     animator = GetComponent<Animator>();
     agent = GetComponent<NavMeshAgent>();
+    character = GetComponent<CharacterController>();
 
-    agent.isStopped = true;
+    Assert.IsTrue(Mathf.Approximately(character.height, agent.height), "Invalid height");
+    Assert.IsTrue(Mathf.Approximately(character.radius, agent.radius), "Invalid radius");
+
+    // agent.isStopped = true;
     agent.updatePosition = false;
     agent.updateRotation = false;
 
@@ -68,17 +79,12 @@ public class Boid : MonoBehaviour {
 
     if (Verbose) {
       if (nextCornerIndex < pathCorners.Count) {
-        Debug.DrawLine(transform.position + Vector3.up,
-                       pathCorners[nextCornerIndex] + Vector3.up,
-                       Color.cyan, Time.deltaTime);
+        Debug.DrawLine(center, pathCorners[nextCornerIndex], Color.cyan, Time.deltaTime);
         for (int i = nextCornerIndex; i < pathCorners.Count - 1; i++) {
-          Debug.DrawLine(pathCorners[i] + Vector3.up,
-                         pathCorners[i + 1] + Vector3.up,
-                         Color.cyan, Time.deltaTime);
+          Debug.DrawLine(pathCorners[i], pathCorners[i + 1], Color.cyan, Time.deltaTime);
           Debug.DrawRay(pathCorners[i], 3f * Vector3.up, Color.red, Time.deltaTime);
         }
       }
-      Debug.DrawRay(transform.position + Vector3.up * 0.5f, agent.velocity, Color.yellow, Time.deltaTime);
     }
 
   }
@@ -87,20 +93,21 @@ public class Boid : MonoBehaviour {
     pathCorners.Clear();
     nextCornerIndex = 0;
     agent.isStopped = true;
+    agent.velocity = Vector3.zero;
   }
 
   // TODO: handle PathInvalid cases
-  public void Guide(Vector3 destination, List<Vector3> corners) {
-    OkayToStop = false;
+  public void Guide(Vector3 goal, List<Vector3> corners) {
+    PrepareToStop = false;
     agent.isStopped = false;
 
-    originalDestination = destination;
+    this.goal = goal;
     pathCorners = corners;
     nextCornerIndex = 0;
     for (int i = 1; i < corners.Count; i++) {
       Vector3 a = corners[i] - corners[i - 1];
-      Vector3 b = transform.position - corners[i - 1];
-      Vector3 c = transform.position - corners[i];
+      Vector3 b = center - corners[i - 1];
+      Vector3 c = center - corners[i];
       float dotBA = Vector3.Dot(b, a);
       float dotCA = Vector3.Dot(c, a);
       if (dotCA < 0) {
@@ -121,16 +128,15 @@ public class Boid : MonoBehaviour {
     Vector3 steering = Vector3.zero;
 
     // Pathfinding + steering
-    bool arrived = false;
+    bool stuck = false;
     bool blocked = false;
     Vector3 avoidance = Vector3.zero;
     Vector3 attraction = Vector3.zero;
     Vector3 retraction = Vector3.zero;
     if (PathFinished) {
-      Vector3 offset = pathCorners.Last() - transform.position;
-      retraction = AIPresets.BoidRetractionForce * offset;
-      if (offset.magnitude <= AIPresets.BoidArrivalCheckRadius)
-        arrived = true;
+      Vector3 offset = destination - center;
+      if (offset.magnitude > AIPresets.BoidArrivalCheckRadius)
+        retraction = AIPresets.BoidRetractionForce * offset;
     }
     else if (nextCornerIndex < pathCorners.Count) {
       // Don't set the Agent Radius parameter in navmesh baking to be exactly what is on your agent!
@@ -168,17 +174,17 @@ public class Boid : MonoBehaviour {
       }
 
       if (blocked) {
-        Vector3 desire = (navmesh_hit.position - transform.position).normalized;
+        Vector3 desire = (navmesh_hit.position - center).normalized;
         Vector3 normal = Vector3.ProjectOnPlane(navmesh_hit.normal, Vector3.up);
         bool close = navmesh_hit.distance < AIPresets.BoidCollisionCheckDistance;
         Vector3 dodge = close ? Vector3.Cross(Vector3.up, normal) : Vector3.Cross(desire, Vector3.up);
         if (isLeftHanded) dodge = -dodge;
 
-        Vector3 ahead = transform.position + dodge * AIPresets.BoidCollisionCheckDistance;
+        Vector3 ahead = center + dodge * AIPresets.BoidCollisionCheckDistance;
         NavMeshHit ahead_hit;
         // Adjust dodge direction if the position ahead is also blocked
         if (agent.Raycast(ahead, out ahead_hit)) {
-          desire = (ahead_hit.position - transform.position).normalized;
+          desire = (ahead_hit.position - center).normalized;
           dodge = Vector3.Cross(desire, Vector3.up);
           if (isLeftHanded) dodge = -dodge;
         }
@@ -186,22 +192,20 @@ public class Boid : MonoBehaviour {
         avoidance = AIPresets.BoidAvoidanceForce * dodge.normalized;
       }
       else {
-        Vector3 target_offset = steering_target - transform.position;
+        Vector3 target_offset = steering_target - center;
         attraction = agent.speed * target_offset.normalized;
       }
 
       // Update next corner
       Vector3 next_corner = pathCorners[nextCornerIndex];
-      Vector3 next_offset = transform.position - next_corner;
+      Vector3 next_offset = center - next_corner;
       if (next_offset.magnitude < AIPresets.BoidArrivalCheckRadius) {
         nextCornerIndex += 1;
       }
     }
 
-    steering += avoidance + attraction + retraction;
-
     // Accumulate timer if all path probes are blocked
-    if (blocked && !(OkayToStop || PathFinished)) {
+    if (blocked && !(PrepareToStop || PathFinished)) {
       if (hasBeenBlocked)
         beginRepathTimer += Time.deltaTime;
       hasBeenBlocked = true;
@@ -211,44 +215,48 @@ public class Boid : MonoBehaviour {
       hasBeenBlocked = false;
     }
 
-    // Apply steering
     if (beginRepathTimer >= AIPresets.BoidBeginRepathTimeout) {
       beginRepathTimer %= AIPresets.BoidBeginRepathTimeout;
       Debug.Log("agent blocked! start repathing");
 
+      momentum = Vector3.zero;
       NavMeshPath path = new NavMeshPath();
-      if (agent.CalculatePath(originalDestination, path)) {
+      if (agent.CalculatePath(goal, path)) {
         List<Vector3> corners = Utility.UpsamplePath(path);
-        Guide(originalDestination, corners);
+        Guide(goal, corners);
       }
     }
-    else if (arrived || OkayToStop) {
-      agent.velocity = Vector3.zero;
-    }
     else {
+      steering += avoidance + attraction + retraction;
       steering = Vector3.ProjectOnPlane(steering, Vector3.up);
       steering = Vector3.ClampMagnitude(steering, agent.speed);
-      agent.velocity = Vector3.ClampMagnitude(agent.velocity + steering, agent.speed);
-    }
+      momentum = Vector3.ClampMagnitude(momentum + steering, agent.speed);
 
-    if (OkayToStop && Verbose) {
-      Debug.DrawRay(transform.position, 3f * Vector3.up, Color.green, Time.deltaTime);
+      if (Verbose) {
+        Debug.DrawRay(center, steering, Color.green, Time.deltaTime);
+        Debug.DrawRay(center, velocity, Color.yellow, Time.deltaTime);
+        Debug.DrawRay(center, reciprocal, Color.magenta, Time.deltaTime);
+      }
     }
   }
 
   private void Animate() {
-    if (agent.velocity.sqrMagnitude > 0.1f) {
-      Vector3 direction = Vector3.ProjectOnPlane(agent.velocity, Vector3.up);
+    Vector3 applied_velocity = Vector3.ClampMagnitude(momentum + reciprocal, agent.speed);
+    if (!agent.isStopped && applied_velocity.sqrMagnitude > 0.1f) {
+      Vector3 direction = Vector3.ProjectOnPlane(applied_velocity, Vector3.up);
       float angle = Vector3.SignedAngle(transform.forward, direction, Vector3.up);
       float scale = agent.angularSpeed * Time.deltaTime / Mathf.Abs(angle);
       transform.Rotate(Vector3.up, angle * scale);
     }
 
-    Vector3 forward_velocity = Vector3.Project(agent.velocity, transform.forward);
+    Vector3 up_velocity = Vector3.Project(applied_velocity, transform.up);
+    Vector3 forward_velocity = Vector3.Project(applied_velocity, transform.forward);
     float forward_speed = Vector3.Dot(forward_velocity, transform.forward);
     forward_speed = Mathf.Clamp(forward_speed, 0f, forward_speed);
-    transform.position += forward_speed * transform.forward * Time.deltaTime;
+
+    Vector3 move_velocity = agent.isStopped ? Vector3.zero : forward_speed * transform.forward + up_velocity;
+    character.SimpleMove(move_velocity);
+    animator.SetFloat("MoveSpeed", velocity.magnitude);
     agent.nextPosition = transform.position;
-    animator.SetFloat("MoveSpeed", forward_speed);
   }
 }

@@ -6,6 +6,7 @@ using UnityEngine.Assertions;
 
 public class Squad {
   // public uint ID { get; set; }
+  public int Size { get { return boids.Count; } }
 
   private float areaOfAllUnits = 0f;
   private int requiredFinishedCount = 0;
@@ -36,13 +37,13 @@ public class Squad {
     int count = 0;
     float radius = float.Epsilon;
     float threshold = float.Epsilon;
-    foreach (Boid boid in boids) {
-      float distance = boid.RemainingDistance;
-      count += boid.PathFinished ? 1 : 0;
+    for (int i = 0; i < Size; i++) {
+      float distance = boids[i].RemainingDistance;
+      count += boids[i].PathFinished ? 1 : 0;
       radius = Mathf.Max(distance, radius);
       // Optimize the threshold function if necessary
-      if (boid.PathFinished || boid.OkayToStop)
-        threshold = Mathf.Max(distance, threshold);
+      if (boids[i].PathFinished || boids[i].PrepareToStop)
+        threshold = Mathf.Max(distance, threshold) + agents[i].radius;
     }
 
     float area = Mathf.PI * radius * radius;
@@ -50,11 +51,11 @@ public class Squad {
     bool arrived = (count >= requiredFinishedCount) || (density >= arrivalCheckDensity);
 
     bool stop = true;
-    foreach (Boid boid in boids) {
-      // Allow boid to stop upon squad arrival
-      if (boid.RemainingDistance <= threshold)
-        boid.OkayToStop = arrived;
-      stop &= boid.OkayToStop;
+    for (int i = 0; i < Size; i++) {
+      float distance = boids[i].RemainingDistance;
+      if (distance - agents[i].radius <= threshold)
+        boids[i].PrepareToStop = arrived;
+      stop &= boids[i].PrepareToStop;
     }
 
     // Stop path following if all boids are okay to stop
@@ -65,8 +66,8 @@ public class Squad {
     }
   }
 
-  public void Dispatch(Vector3 destination) {
-    if (boids.Count == 0)
+  public void Dispatch(Vector3 goal) {
+    if (Size == 0)
       return;
 
     // Utility.SingleLinkMetric<NavMeshAgent> metric = (NavMeshAgent a, NavMeshAgent b) =>
@@ -98,11 +99,11 @@ public class Squad {
 
     leader_agent.enabled = true;
     NavMeshPath path = new NavMeshPath();
-    if (leader_agent.CalculatePath(destination, path)) {
+    if (leader_agent.CalculatePath(goal, path)) {
       List<Vector3> corners = Utility.UpsamplePath(path);
 
       foreach (Boid boid in boids) {
-        boid.Guide(destination, corners);
+        boid.Guide(goal, corners);
       }
 
     }

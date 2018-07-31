@@ -1485,6 +1485,10 @@ Prefab:
       propertyPath: m_Layer
       value: 8
       objectReference: {fileID: 0}
+    - target: {fileID: 6400002, guid: 95bbe2885334e3c46b79c3419edb469c, type: 2}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: 95bbe2885334e3c46b79c3419edb469c, type: 2}
   m_IsPrefabParent: 0
@@ -2030,7 +2034,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f87ae612a494e62458477103bcc8ffcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Verbose: 0
+  Verbose: 1
   AIPresets: {fileID: 11400000, guid: 81859258152da894c9e70dbd69e46b5b, type: 2}
 --- !u!195 &1382584933
 NavMeshAgent:
