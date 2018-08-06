@@ -223,8 +223,8 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 180524195}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 2, y: 0.5, z: 8}
-  m_LocalScale: {x: 1, y: 1, z: 6}
+  m_LocalPosition: {x: 2, y: 0.5, z: 8.38}
+  m_LocalScale: {x: 1, y: 1, z: 5}
   m_Children: []
   m_Father: {fileID: 1295299806}
   m_RootOrder: 5
@@ -327,7 +327,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
   MaxObstacleDistance: 3
@@ -433,7 +433,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
   MaxObstacleDistance: 3
@@ -539,7 +539,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
   MaxObstacleDistance: 3
@@ -645,7 +645,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
   MaxObstacleDistance: 3
@@ -938,8 +938,8 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 845530184}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -6, y: 0.5, z: 2}
-  m_LocalScale: {x: 12, y: 1, z: 1}
+  m_LocalPosition: {x: -7.4, y: 0.5, z: 2}
+  m_LocalScale: {x: 9, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1295299806}
   m_RootOrder: 4
@@ -1042,7 +1042,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
   MaxObstacleDistance: 3
@@ -1761,7 +1761,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1777073472}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 5.05, y: 0.5, z: -1.98}
+  m_LocalPosition: {x: 5.05, y: 0.5, z: -0.88}
   m_LocalScale: {x: 1, y: 1, z: 4}
   m_Children: []
   m_Father: {fileID: 1295299806}
@@ -1950,7 +1950,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
   MaxObstacleDistance: 3
@@ -2056,7 +2056,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
   MaxObstacleDistance: 3
@@ -2302,12 +2302,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Mass: 50
-  Priority: 50
+  Yield: 30
   MaxSpeed: 5
   MaxAcceleration: 8
-  MaxObstacleDistance: 3
-  ObstacleCheckStep: 0.5
-  MaxNeighborDistance: 5
+  MaxObstacleDistance: 2
+  ObstacleCheckStep: 0.2
+  MaxNeighborDistance: 3
   NeighborUpdateTimeout: 0.2
 --- !u!1 &2020095775
 GameObject:
@@ -2415,7 +2415,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 2099816189}
   m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 2, y: 0.5, z: -8}
+  m_LocalPosition: {x: 2.22, y: 0.5, z: -8.1}
   m_LocalScale: {x: 2, y: 1, z: 4}
   m_Children: []
   m_Father: {fileID: 1295299806}

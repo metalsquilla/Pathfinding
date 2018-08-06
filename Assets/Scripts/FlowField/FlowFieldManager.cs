@@ -107,7 +107,7 @@ public class FlowFieldManager : MonoBehaviour {
     RaycastHit hit;
     int layer_mask = LayerMask.GetMask("Terrain");
     if (Physics.Raycast(ray, out hit, 1000f, layer_mask)) {
-      Vector2Int tile = surface.GetAdjacentTile(hit.point);
+      Vector2Int tile = surface.GetNearestTile(hit.point);
       int base_x = tile.x;
       int base_y = tile.y;
       int shift_x = base_x - 1;

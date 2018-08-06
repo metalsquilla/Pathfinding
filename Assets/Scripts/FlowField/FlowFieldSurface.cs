@@ -95,7 +95,7 @@ public class FlowFieldSurface {
     }
   }
 
-  public Vector2Int GetAdjacentTile(Vector3 position) {
+  public Vector2Int GetNearestTile(Vector3 position) {
     Vector3 coords = position - Origin;
     float x_m = coords.x - Mathf.Floor(coords.x);
     float y_m = coords.z - Mathf.Floor(coords.z);
@@ -104,6 +104,13 @@ public class FlowFieldSurface {
     base_x = Mathf.Clamp(base_x, 1, Width - 1);
     base_y = Mathf.Clamp(base_y, 1, Height - 1);
     return new Vector2Int(base_x, base_y);
+  }
+
+  public float GetTilePotential(Vector3 position) {
+    Vector3 offset = position - Origin;
+    int tile_x = Mathf.Clamp((int)offset.x, 0, Width - 1);
+    int tile_y = Mathf.Clamp((int)offset.z, 0, Height - 1);
+    return Potentials[tile_y, tile_x];
   }
 
   public Vector3 GetTileGradient(Vector3 position) {
