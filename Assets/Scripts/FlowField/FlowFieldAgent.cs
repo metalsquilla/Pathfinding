@@ -45,7 +45,7 @@ public class FlowFieldAgent : MonoBehaviour {
   private int neighborCheckLayerMask = 0;
   private List<FlowFieldAgent> neighborAgents;
 
-  const int kNumberTestDirections = 60;
+  const int kNumberTestDirections = 100;
   Vector3[] testVelocities = new Vector3[kNumberTestDirections];
 
   void Awake() {
@@ -55,7 +55,7 @@ public class FlowFieldAgent : MonoBehaviour {
       testVelocities[i] = Vector3.zero;
       testVelocities[i].x = Mathf.Cos(angle);
       testVelocities[i].z = Mathf.Sin(angle);
-      testVelocities[i] *= MaxSpeed;
+      testVelocities[i] *= Random.Range(0f, MaxSpeed);
     }
   }
 
@@ -81,8 +81,8 @@ public class FlowFieldAgent : MonoBehaviour {
       }
     }
 
-    // Velocity = CalcRVOVelocity();
-    Velocity = CalcFlockingVelocity();
+    Velocity = CalcRVOVelocity();
+    // Velocity = CalcFlockingVelocity();
 
     if (!Stopped) {
       Vector3 next_position = transform.position + Velocity * Time.deltaTime;
@@ -129,7 +129,7 @@ public class FlowFieldAgent : MonoBehaviour {
     return Vector3.ClampMagnitude(Velocity + steering, MaxSpeed);
   }
 
-  // TODO: this is totally wrong...
+  // TODO: this is really not stable...
   private Vector3 CalcRVOVelocity() {
     float min_penalty = float.MaxValue;
     Vector3 best_velocity = Velocity;
@@ -154,7 +154,7 @@ public class FlowFieldAgent : MonoBehaviour {
           }
         }
 
-        float penalty = (Priority / (collision_time + 0.001f)) + (test_velocity - DesiredVelocity).magnitude;
+        float penalty = (10f / (collision_time + 0.001f)) + (test_velocity - DesiredVelocity).magnitude;
         if (penalty < min_penalty) {
           min_penalty = penalty;
           best_velocity = test_velocity;
@@ -186,8 +186,9 @@ public class FlowFieldAgent : MonoBehaviour {
     float t2 = (-b + delta) / (2 * a);
     if (t1 >= 0)
       return t1;
-    else if (t2 < 0)
-      return infinity;
-    else return t2;
+    // else if (t2 >= 0)
+    //   return t2;
+
+    return infinity;
   }
 }
